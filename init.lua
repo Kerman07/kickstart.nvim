@@ -382,21 +382,65 @@ require('lazy').setup({
         --
         defaults = {
           sorting_strategy = 'ascending',
-          layout_strategy = 'horizontal', -- or "vertical"
+          get_status_text = function() return '' end,
+          layout_strategy = 'horizontal',
           layout_config = {
-            horizontal = { prompt_position = 'top' },
+            horizontal = {
+              prompt_position = 'top',
+              preview_width = 0.55,
+              width = 0.90,
+              height = 0.78,
+              preview_cutoff = 120,
+            },
             vertical = { prompt_position = 'top' },
           },
           path_display = { 'truncate' },
+          file_ignore_patterns = {
+            '%.git/',
+            'node_modules/',
+            'dist/',
+            'build/',
+            'target/',
+            '%.cache/',
+          },
         },
         pickers = {
+          find_files = {
+            hidden = true,
+            theme = 'dropdown',
+            previewer = false,
+            layout_config = {
+              width = 0.60,
+              height = 0.45,
+            },
+          },
           buffers = {
             sort_mru = true,
             sort_lastused = true,
             ignore_current_buffer = true, -- optional
+            theme = 'dropdown',
+            previewer = false,
+            layout_config = {
+              width = 0.60,
+              height = 0.40,
+            },
+          },
+          oldfiles = {
+            theme = 'dropdown',
+            previewer = false,
+            layout_config = {
+              width = 0.60,
+              height = 0.45,
+            },
           },
         },
         extensions = {
+          fzf = {
+            fuzzy = true,
+            override_generic_sorter = true,
+            override_file_sorter = true,
+            case_mode = 'smart_case',
+          },
           ['ui-select'] = { require('telescope.themes').get_dropdown() },
         },
       }
