@@ -1,0 +1,85 @@
+return function(INPUT_LINE_NUMBER, CURSOR_LINE, CURSOR_COLUMN)
+  -- print("INPUT_LINE_NUMBER:", INPUT_LINE_NUMBER, "CURSOR_LINE:", CURSOR_LINE, "CURSOR_COLUMN:", CURSOR_COLUMN)
+  vim.opt.encoding = 'utf-8'
+  vim.opt.clipboard = 'unnamed'
+  vim.opt.compatible = false
+  vim.opt.number = false
+  vim.opt.relativenumber = false
+  vim.opt.termguicolors = true
+  vim.o.ignorecase = true
+  vim.o.smartcase = true
+  vim.opt.showmode = true
+  vim.opt.ruler = false
+  vim.opt.laststatus = 0
+  vim.opt.showcmd = true
+  vim.opt.scrollback = 100000
+  -- use the visual color matching the current colorscheme
+  vim.cmd 'hi Normal ctermbg=None ctermfg=None guibg=None guifg=None'
+  vim.keymap.set('n', '<Esc>', '<Cmd>noh<CR>')
+  vim.keymap.set('n', '<C-d>', '<C-d>zz')
+  vim.keymap.set('n', '<C-u>', '<C-u>zz')
+  vim.keymap.set('n', 'n', 'nzzzv')
+  vim.keymap.set('n', 'N', 'Nzzzv')
+  local term_buf = vim.api.nvim_create_buf(true, false)
+  local term_io = vim.api.nvim_open_term(term_buf, {})
+  vim.api.nvim_buf_set_keymap(term_buf, 'n', 'q', '<Cmd>q<CR>', {})
+  local group = vim.api.nvim_create_augroup('kitty+page', {})
+
+  local setCursor = function()
+    if vim.api.nvim_get_current_buf() ~= term_buf then return end
+
+    local mode = vim.api.nvim_get_mode().mode
+    if mode ~= 'n' and mode ~= 'nt' then return end
+
+    local max_line = vim.api.nvim_buf_line_count(term_buf)
+    local topline = math.max(1, math.min(INPUT_LINE_NUMBER, max_line))
+    local line = CURSOR_LINE > 0 and CURSOR_LINE or topline
+    line = math.max(1, math.min(line, max_line))
+    local col = math.max(0, CURSOR_COLUMN - 1)
+
+    vim.fn.winrestview { topline = topline, leftcol = 0 }
+    vim.api.nvim_win_set_cursor(0, { line, col })
+  end
+
+  vim.api.nvim_create_autocmd('ModeChanged', {
+    group = group,
+    buffer = term_buf,
+    callback = function()
+      local mode = vim.fn.mode()
+      if mode == 't' then
+        vim.cmd.stopinsert()
+        vim.schedule(setCursor)
+      end
+    end,
+  })
+
+  vim.api.nvim_create_autocmd('VimEnter', {
+    group = group,
+    pattern = '*',
+    once = true,
+    callback = function(ev)
+      local current_win = vim.fn.win_getid()
+      for _, line in ipairs(vim.api.nvim_buf_get_lines(ev.buf, 0, -2, false)) do
+        vim.api.nvim_chan_send(term_io, line)
+        vim.api.nvim_chan_send(term_io, '\r\n')
+      end
+      for _, line in ipairs(vim.api.nvim_buf_get_lines(ev.buf, -2, -1, false)) do
+        vim.api.nvim_chan_send(term_io, line)
+      end
+      vim.api.nvim_win_set_buf(current_win, term_buf)
+      vim.api.nvim_buf_delete(ev.buf, { force = true })
+    end,
+  })
+
+  local highlight_group = vim.api.nvim_create_augroup('YankHighlight', { clear = true })
+  vim.api.nvim_create_autocmd('TextYankPost', {
+    callback = function() vim.highlight.on_yank() end,
+    group = highlight_group,
+    pattern = '*',
+  })
+
+  vim.defer_fn(function()
+    setCursor()
+    vim.cmd 'redraw!'
+  end, 50)
+end
